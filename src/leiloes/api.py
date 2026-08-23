@@ -1,0 +1,126 @@
+"""API HTTP e interface web do agregador."""
+
+from __future__ import annotations
+
+import pathlib
+
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse, JSONResponse
+
+from . import store
+from .finance import MAX_PARCELAS, MIN_ENTRADA_PCT, RegraLegalError, simular
+from .sync import sincronizar
+
+WEB_DIR = pathlib.Path(__file__).parent / "web"
+
+app = FastAPI(
+    title="Radar de SUVs em leilao judicial",
+    description=(
+        "Agrega lotes publicados por leiloeiros oficiais. Cada item traz o link "
+        "da origem. Nenhum dado e estimado."
+    ),
+    version="0.1.0",
+)
+
+
+def _preco_confiavel(valor: float | None) -> bool:
+    """Valores simbolicos (R$ 1,00) na listagem indicam lance corrente, nao preco."""
+    return bool(valor and valor >= 1000)
+
+
+@app.get("/", response_class=HTMLResponse)
+def home() -> str:
+    return (WEB_DIR / "index.html").read_text(encoding="utf-8")
+
+
+@app.get("/api/lotes")
+def listar_lotes(
+    body: str = Query("suv"),
+    tier: str | None = None,
+    uf: str | None = None,
+    preco_min: float | None = None,
+    preco_max: float | None = None,
+    desconto_min: int | None = None,
+    teto_solar: bool = False,
+    excluir_sucata: bool = True,
+    excluir_direitos: bool = False,
+    so_parcelavel: bool = False,
+    termo: str | None = None,
+    ordem: str = "parcela",
+    limite: int = Query(200, le=500),
+    entrada_pct: float = MIN_ENTRADA_PCT,
+    parcelas: int = MAX_PARCELAS,
+) -> JSONResponse:
+    conn = store.connect()
+    try:
+        linhas = store.buscar(
+            conn,
+            body=body or None,
+            tier=tier,
+            uf=uf,
+            preco_min=preco_min,
+            preco_max=preco_max,
+            desconto_min=desconto_min,
+            teto_solar=teto_solar,
+            excluir_sucata=excluir_sucata,
+            excluir_direitos=excluir_direitos,
+            so_parcelavel=so_parcelavel,
+            termo=termo,
+            ordem=ordem,
+            limite=limite,
+        )
+        atualizado = store.get_meta(conn, "ultima_sincronizacao")
+    finally:
+        conn.close()
+
+    for linha in linhas:
+        linha["preco_confiavel"] = _preco_confiavel(linha.get("price"))
+        linha["teto_solar"] = "sim" if linha.get("sunroof") else "nao informado"
+        linha["parcelamento"] = linha.get("payment_terms") or "nao declarado no anuncio"
+        linha["sucata"] = bool(linha.get("scrap"))
+        linha["so_direitos"] = bool(linha.get("rights_only"))
+        linha.pop("description", None)
+        if linha["preco_confiavel"]:
+            s = simular(linha["price"], entrada_pct=entrada_pct, parcelas=parcelas)
+            linha["entrada"] = s.entrada
+            linha["parcela"] = s.parcela
+            linha["desembolso_inicial"] = s.desembolso_inicial
+        else:
+            linha["entrada"] = linha["parcela"] = linha["desembolso_inicial"] = None
+
+    if ordem == "parcela":
+        linhas.sort(key=lambda l: (l["parcela"] is None, l["parcela"] or 0))
+
+    return JSONResponse(
+        {
+            "atualizado_em": atualizado,
+            "total": len(linhas),
+            "regra_de_parcelamento": {
+                "base_legal": "CPC (Lei 13.105/2015), art. 895",
+                "entrada_minima": MIN_ENTRADA_PCT,
+                "parcelas_maximas": MAX_PARCELAS,
+                "entrada_zero_permitida": False,
+            },
+            "lotes": linhas,
+        }
+    )
+
+
+@app.get("/api/simulacao")
+def simulacao(
+    valor: float,
+    entrada_pct: float = MIN_ENTRADA_PCT,
+    parcelas: int = MAX_PARCELAS,
+) -> JSONResponse:
+    try:
+        resultado = simular(valor, entrada_pct=entrada_pct, parcelas=parcelas)
+    except RegraLegalError as erro:
+        raise HTTPException(status_code=422, detail=str(erro)) from erro
+    return JSONResponse(resultado.__dict__ if not hasattr(resultado, "__dataclass_fields__") else {
+        campo: getattr(resultado, campo) for campo in resultado.__dataclass_fields__
+    })
+
+
+@app.post("/api/sync")
+def sync(paginas: int = 6, detalhes: int = 60) -> JSONResponse:
+    return JSONResponse(sincronizar(max_pages=paginas, detalhes=detalhes))

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Radar de SUVs em leilão judicial</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --line:#252a34; --txt:#e8eaef; --dim:#9aa3b2;
+    --accent:#4cc38a; --warn:#f0b429; --danger:#f2545b;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f5f7; --card:#fff; --line:#e2e5ea; --txt:#16191f; --dim:#5d6675; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);
+         border-bottom:1px solid var(--line);padding:14px 16px 10px}
+  h1{margin:0;font-size:18px;letter-spacing:-.2px}
+  .sub{color:var(--dim);font-size:12px;margin-top:3px}
+  main{padding:12px 16px 64px;max-width:820px;margin:0 auto}
+  .aviso{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--warn);
+         border-radius:10px;padding:12px 14px;font-size:13px;color:var(--dim);margin-bottom:14px}
+  .aviso b{color:var(--txt)}
+  .filtros{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  .filtros label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--dim)}
+  input,select{background:var(--card);color:var(--txt);border:1px solid var(--line);
+               border-radius:9px;padding:10px;font-size:15px;width:100%}
+  .linha-check{grid-column:1/-1;display:flex;gap:16px;align-items:center;font-size:13px;color:var(--dim)}
+  .linha-check input{width:auto}
+  button{grid-column:1/-1;background:var(--accent);color:#06251a;border:0;border-radius:10px;
+         padding:12px;font-size:15px;font-weight:600}
+  .lote{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        overflow:hidden;margin-bottom:12px}
+  .lote img{width:100%;height:180px;object-fit:cover;display:block;background:var(--line)}
+  .corpo{padding:12px 14px}
+  .titulo{font-size:15px;font-weight:600;margin:0 0 4px}
+  .meta{font-size:12px;color:var(--dim);margin-bottom:10px}
+  .valores{display:flex;flex-wrap:wrap;gap:10px 18px;margin-bottom:10px}
+  .valor b{display:block;font-size:17px}
+  .valor span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+  .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .tag{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+  .tag.ok{border-color:var(--accent);color:var(--accent)}
+  .tag.risco{border-color:var(--danger);color:var(--danger)}
+  a.origem{display:block;text-align:center;padding:10px;border-top:1px solid var(--line);
+           color:var(--accent);text-decoration:none;font-size:14px;font-weight:600}
+  .vazio{color:var(--dim);text-align:center;padding:40px 0;font-size:14px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Radar de SUVs em leilão judicial</h1>
+  <div class="sub" id="status">carregando…</div>
+</header>
+
+<main>
+  <div class="aviso">
+    <b>Entrada zero não existe nessa modalidade.</b> O art. 895, §1º do CPC
+    (Lei 13.105/2015) exige no mínimo <b>25% à vista</b> e no máximo
+    <b>30 parcelas</b> mensais, corrigidas monetariamente. A comissão do leiloeiro
+    (em geral 5%) costuma ser paga à vista, fora do parcelamento. Cada lote traz o
+    link da página oficial — confira o edital antes de dar lance.
+  </div>
+
+  <form class="filtros" id="filtros">
+    <label>Valor máximo (R$)
+      <input type="number" name="preco_max" placeholder="ex.: 90000" inputmode="numeric">
+    </label>
+    <label>Desconto mínimo (%)
+      <input type="number" name="desconto_min" placeholder="ex.: 40" inputmode="numeric">
+    </label>
+    <label>Faixa
+      <select name="tier">
+        <option value="">Todas</option>
+        <option value="premium">Só premium / luxo</option>
+        <option value="intermediario">Intermediário</option>
+      </select>
+    </label>
+    <label>UF
+      <input type="text" name="uf" placeholder="ex.: SP" maxlength="2">
+    </label>
+    <label>Entrada (%)
+      <input type="number" name="entrada_pct" value="25" min="25" max="100" inputmode="numeric">
+    </label>
+    <label>Parcelas
+      <input type="number" name="parcelas" value="30" min="1" max="30" inputmode="numeric">
+    </label>
+    <div class="linha-check">
+      <label style="flex-direction:row;gap:6px;align-items:center">
+        <input type="checkbox" name="teto_solar"> só com teto solar declarado
+      </label>
+      <label style="flex-direction:row;gap:6px;align-items:center">
+        <input type="checkbox" name="so_parcelavel"> só lotes que não são à vista
+      </label>
+      <label style="flex-direction:row;gap:6px;align-items:center">
+        <input type="checkbox" name="excluir_direitos"> esconder "só os direitos"
+      </label>
+    </div>
+    <button type="submit">Buscar</button>
+  </form>
+
+  <div id="lista"></div>
+</main>
+
+<script>
+const brl = v => v == null ? "—" : v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+
+function tags(l){
+  const t = [];
+  if (l.tier === "premium") t.push(['ok','premium']);
+  if (l.discount_pct) t.push(['','-'+l.discount_pct+'% ' + (l.discount_label||'')]);
+  t.push([l.sunroof ? 'ok' : '', 'teto solar: ' + l.teto_solar]);
+  if (l.so_direitos) t.push(['risco','só os direitos, não o veículo']);
+  if (l.sucata) t.push(['risco','anunciado como sucata/incompleto']);
+  t.push([l.parcelamento === 'aceita proposta parcelada' ? 'ok'
+        : l.parcelamento === 'somente a vista' ? 'risco' : '', 'pagamento: ' + l.parcelamento]);
+  if (!l.preco_confiavel) t.push(['risco','valor do anúncio é lance corrente']);
+  return t.map(([c,x]) => `<span class="tag ${c}">${x}</span>`).join("");
+}
+
+function card(l){
+  const praca = [l.first_date && '1ª praça '+l.first_date, l.second_date && '2ª praça '+l.second_date]
+    .filter(Boolean).join(' · ');
+  return `<article class="lote">
+    ${l.image_url ? `<img loading="lazy" src="${l.image_url}" alt="" onerror="this.remove()">` : ""}
+    <div class="corpo">
+      <p class="titulo">${l.title}</p>
+      <div class="meta">${[l.city, l.uf].filter(Boolean).join('/')}${l.lot_number ? ' · '+l.lot_number : ''}${l.status ? ' · '+l.status : ''}${praca ? '<br>'+praca : ''}</div>
+      <div class="valores">
+        <div class="valor"><span>parcela</span><b>${brl(l.parcela)}</b></div>
+        <div class="valor"><span>entrada + comissão</span><b>${brl(l.desembolso_inicial)}</b></div>
+        <div class="valor"><span>valor do lote</span><b>${brl(l.price)}</b></div>
+        ${l.appraisal ? `<div class="valor"><span>avaliação</span><b>${brl(l.appraisal)}</b></div>` : ""}
+      </div>
+      <div class="tags">${tags(l)}</div>
+    </div>
+    <a class="origem" href="${l.url}" target="_blank" rel="noopener">abrir no site oficial ↗</a>
+  </article>`;
+}
+
+async function buscar(evento){
+  if (evento) evento.preventDefault();
+  const form = new FormData(document.getElementById("filtros"));
+  const params = new URLSearchParams({body:"suv", ordem:"parcela"});
+  for (const [k,v] of form.entries()){
+    if (v === "" || v == null) continue;
+    params.set(k, v === "on" ? "true" : v);
+  }
+  if (params.get("entrada_pct")) params.set("entrada_pct", Number(params.get("entrada_pct"))/100);
+  const lista = document.getElementById("lista");
+  lista.innerHTML = '<p class="vazio">buscando…</p>';
+  const r = await fetch("/api/lotes?" + params.toString());
+  if (!r.ok){ lista.innerHTML = '<p class="vazio">erro ao consultar</p>'; return; }
+  const dados = await r.json();
+  document.getElementById("status").textContent =
+    `${dados.total} SUV(s) · dados coletados em ${dados.atualizado_em ? new Date(dados.atualizado_em).toLocaleString("pt-BR") : "—"}`;
+  lista.innerHTML = dados.lotes.length
+    ? dados.lotes.map(card).join("")
+    : '<p class="vazio">Nenhum lote bate com esses filtros agora. Leilão é estoque rotativo: rode a sincronização de novo mais tarde.</p>';
+}
+
+document.getElementById("filtros").addEventListener("submit", buscar);
+buscar();
+</script>
+</body>
+</html>
