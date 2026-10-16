@@ -65,8 +65,15 @@
   </div>
 
   <form class="filtros" id="filtros">
-    <label>Valor máximo (R$)
-      <input type="number" name="preco_max" placeholder="ex.: 90000" inputmode="numeric">
+    <label>Entrada máxima (R$)
+      <input type="number" name="entrada_max" placeholder="ex.: 10000" inputmode="numeric">
+    </label>
+    <label>Carroceria
+      <select name="body">
+        <option value="suv">só SUV</option>
+        <option value="suv,crossover">SUV + perua aventureira</option>
+        <option value="crossover">só perua aventureira</option>
+      </select>
     </label>
     <label>Desconto mínimo (%)
       <input type="number" name="desconto_min" placeholder="ex.: 40" inputmode="numeric">
@@ -103,6 +110,9 @@
       <label style="flex-direction:row;gap:6px;align-items:center">
         <input type="checkbox" name="incluir_sem_ano"> incluir lotes sem ano declarado
       </label>
+      <label style="flex-direction:row;gap:6px;align-items:center">
+        <input type="checkbox" name="incluir_sem_uf"> incluir lotes sem praça declarada
+      </label>
     </div>
     <button type="submit">Buscar</button>
   </form>
@@ -115,6 +125,7 @@ const brl = v => v == null ? "—" : v.toLocaleString("pt-BR",{style:"currency",
 
 function tags(l){
   const t = [];
+  if (l.body === 'crossover') t.push(['','perua/hatch aventureiro, não SUV']);
   if (l.tier === "premium") t.push(['ok','premium']);
   if (l.discount_label || l.discount_pct){
     // Rotulo da origem, literal: "50% abaixo na 2a praca" e condicao futura,
@@ -157,7 +168,7 @@ function card(l){
 async function buscar(evento){
   if (evento) evento.preventDefault();
   const form = new FormData(document.getElementById("filtros"));
-  const params = new URLSearchParams({body:"suv", ordem:"parcela"});
+  const params = new URLSearchParams({ordem:"parcela"});
   for (const [k,v] of form.entries()){
     if (v === "" || v == null) continue;
     params.set(k, v === "on" ? "true" : v);

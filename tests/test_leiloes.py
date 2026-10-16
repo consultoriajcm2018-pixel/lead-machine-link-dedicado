@@ -65,6 +65,43 @@ def test_modelos_abreviados_e_familias() -> None:
         assert classify_body(titulo) == "outro", titulo
 
 
+def test_classe_crossover_separada_do_suv() -> None:
+    # Perua e hatch levantado ficam em classe propria, nao viram SUV.
+    for titulo in ("Carro Fiat Palio Weekend Adventure 1.8 Flex - 2013",
+                   "VW Spacefox GII - 11/11 - Sertãozinho/SP",
+                   "Carro Hyundai HB20X Style 2015",
+                   "Renault Sandero Stepway 2016"):
+        assert classify_body(titulo) == "crossover", titulo
+        assert suv_tier(titulo) == "compacto", titulo
+    # Compacto de verdade segue como SUV.
+    for titulo in ("VW/Nivus Highline TSI - 21/22", "VW/T-Cross TSI MD - 19/20"):
+        assert classify_body(titulo) == "suv", titulo
+    # Picape nao vira aventureiro nem SUV, mesmo com nome de familia SUV.
+    assert classify_body("Fiat Strada Adventure 2012") == "picape"
+    assert classify_body("Renault Duster Oroch Dynamique 2017") == "picape"
+    assert classify_body("RENAULT/DUSTER 20 D 4X2A - 13/14") == "suv"
+
+
+def test_busca_aceita_varias_carrocerias_e_praca_sem_uf() -> None:
+    import tempfile
+
+    from leiloes.models import Lote
+
+    lotes = [
+        Lote(source="t", source_id="a", url="u1", title="T-Cross", body="suv", price=80000.0, uf="SP"),
+        Lote(source="t", source_id="b", url="u2", title="Palio Weekend", body="crossover", price=17000.0, uf="SP"),
+        Lote(source="t", source_id="c", url="u3", title="Creta", body="suv", price=118000.0, uf="SI"),
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        conn = connect(str(pathlib.Path(tmp) / "t.db"))
+        upsert_many(conn, lotes)
+        assert {l["source_id"] for l in buscar(conn, body="suv", uf="SP")} == {"a"}
+        assert {l["source_id"] for l in buscar(conn, body=["suv", "crossover"], uf="SP")} == {"a", "b"}
+        # Lote sem praca declarada so entra quando pedido.
+        assert {l["source_id"] for l in buscar(conn, body="suv", uf="SP", incluir_sem_uf=True)} == {"a", "c"}
+        conn.close()
+
+
 def test_faixa_premium() -> None:
     assert suv_tier("I/LR Evoque Prestige 2.2 - 2015/2015") == "premium"
     assert suv_tier("FORD/ECOSPORT XLT1.6FLEX - 08/08") == "intermediario"

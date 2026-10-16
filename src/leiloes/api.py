@@ -38,9 +38,11 @@ def home() -> str:
 
 @app.get("/api/lotes")
 def listar_lotes(
-    body: str = Query("suv"),
+    body: str = Query("suv", description="carrocerias separadas por virgula: suv, crossover, picape"),
     tier: str | None = None,
     uf: str | None = None,
+    incluir_sem_uf: bool = False,
+    entrada_max: float | None = Query(None, description="teto para a entrada de 25%; corta pelo valor do lote"),
     preco_min: float | None = None,
     preco_max: float | None = None,
     desconto_min: int | None = None,
@@ -58,13 +60,19 @@ def listar_lotes(
 ) -> JSONResponse:
     ano_min = dt.date.today().year - idade_max if idade_max is not None else None
 
+    # Entrada e percentual do lance, entao um teto de entrada vira teto de valor.
+    if entrada_max is not None and entrada_pct > 0:
+        limite = entrada_max / entrada_pct
+        preco_max = min(preco_max, limite) if preco_max is not None else limite
+
     conn = store.connect()
     try:
         linhas = store.buscar(
             conn,
-            body=body or None,
+            body=[b.strip() for b in body.split(",") if b.strip()] or None,
             tier=tier,
             uf=uf,
+            incluir_sem_uf=incluir_sem_uf,
             preco_min=preco_min,
             preco_max=preco_max,
             desconto_min=desconto_min,
@@ -107,6 +115,10 @@ def listar_lotes(
         {
             "atualizado_em": atualizado,
             "total": len(linhas),
+            "regra_de_entrada": {
+                "entrada_max": entrada_max,
+                "valor_de_lote_maximo": preco_max,
+            },
             "regra_de_idade": {
                 "idade_maxima": idade_max,
                 "ano_modelo_minimo": ano_min,

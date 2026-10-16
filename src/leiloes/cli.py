@@ -17,8 +17,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--db", default=None)
     parser.add_argument("--paginas", type=int, default=6)
     parser.add_argument("--detalhes", type=int, default=60)
+    parser.add_argument("--body", default="suv",
+                        help="carrocerias separadas por virgula (suv, crossover, picape)")
     parser.add_argument("--tier", default=None)
     parser.add_argument("--uf", default=None)
+    parser.add_argument("--incluir-sem-uf", action="store_true")
     parser.add_argument("--preco-max", type=float, default=None)
     parser.add_argument("--teto-solar", action="store_true")
     parser.add_argument("--idade-max", type=int, default=5,
@@ -36,8 +39,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         linhas = store.buscar(
             conn,
+            body=[b.strip() for b in args.body.split(",") if b.strip()],
             tier=args.tier,
             uf=args.uf,
+            incluir_sem_uf=args.incluir_sem_uf,
             preco_max=args.preco_max,
             teto_solar=args.teto_solar,
             ano_min=dt.date.today().year - args.idade_max if args.idade_max is not None else None,

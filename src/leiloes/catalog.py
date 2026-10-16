@@ -76,6 +76,10 @@ NON_SUV_HINTS = (
     "embarcacao", "jet ski", "quadriciclo", "sucata", "carcaca",
 )
 
+# Picape que carrega o nome de uma familia de SUV: a Oroch e a cabine dupla
+# do Duster. Vence o casamento com o modelo SUV.
+PICKUP_OVERRIDES = ("oroch",)
+
 PICKUP_HINTS = (
     "caminhonete", "picape", "pick-up", "pickup", "strada", "saveiro",
     "montana", "toro", "ranger", "s10", "s-10", "amarok", "frontier",
@@ -87,6 +91,17 @@ PICKUP_HINTS = (
 # marca correspondente aparece no mesmo titulo.
 BRAND_REQUIRED: dict[str, tuple[str, ...]] = {
     "santa fe": ("hyundai",),
+    "adventure": ("fiat",),
+    "activ": ("chevrolet", "gm"),
+    "trekking": ("fiat",),
+    "freestyle": ("ford",),
+    "stepway": ("renault",),
+    "twist": ("honda",),
+    "rallye": ("volkswagen", "vw"),
+    "escapade": ("peugeot",),
+    "x-gear": ("nissan",),
+    "xtreme": ("volkswagen", "vw"),
+    "crossport": ("chevrolet", "gm"),
     "tr4": ("mitsubishi", "pajero"),
     "willys": ("ford", "willys", "jeep"),
     "2008": ("peugeot",),
@@ -127,6 +142,20 @@ BRAND_REQUIRED: dict[str, tuple[str, ...]] = {
     "q7": ("audi",),
     "q8": ("audi",),
 }
+
+
+# Hatch e perua levantados ("aventureiros"): nao sao SUV de verdade, mas
+# ocupam a prateleira logo abaixo do Nivus e do T-Cross. Ficam em uma classe
+# propria, "crossover", para aparecerem rotulados pelo que sao.
+CROSSOVER_MODELS = (
+    "hb20x", "crossfox", "cross fox", "spacefox", "cross up", "up track",
+    "etios cross", "sandero stepway", "stepway", "ka freestyle", "freestyle",
+    "onix activ", "activ", "argo trekking", "trekking", "uno way",
+    "palio adventure", "weekend adventure", "adventure", "idea adventure",
+    "doblo adventure", "fox xtreme", "xtreme", "207 escapade", "escapade",
+    "fit twist", "twist", "gol rallye", "rallye", "livina x-gear", "x-gear",
+    "spin activ", "agile crossport", "crossport",
+)
 
 
 # Modelos que nao sao SUV. Servem para derrubar um falso positivo vindo de um
@@ -209,18 +238,24 @@ def _matches_model(text: str, model: str) -> bool:
 
 
 def classify_body(title: str) -> str:
-    """Devolve 'suv', 'picape', 'outro' ou 'nao_carro'."""
+    """Devolve 'suv', 'crossover', 'picape', 'outro' ou 'nao_carro'."""
     t = limpar_titulo(title)
     if any(h in t for h in NON_SUV_HINTS):
         # 'Hilux SW4' e SUV mesmo que a origem escreva 'caminhonete'.
         if not any(m in t for m in SUV_MODELS["premium"] + SUV_MODELS["intermediario"]):
             return "nao_carro"
+    if any(_matches_model(t, modelo) for modelo in PICKUP_OVERRIDES):
+        return "picape"
     for tier in ("premium", "intermediario"):
         for model in SUV_MODELS[tier]:
             if _matches_model(t, model):
                 return "suv"
+    # Picape antes de crossover: "Strada Adventure" e picape, nao aventureiro.
     if any(h in t for h in PICKUP_HINTS):
         return "picape"
+    for model in CROSSOVER_MODELS:
+        if _matches_model(t, model):
+            return "crossover"
     return "outro"
 
 
@@ -230,9 +265,16 @@ DOWNGRADE_PARA_INTERMEDIARIO = ("tr4", "pajero tr4", "jeep universal", "ford jee
 
 
 def suv_tier(title: str) -> str | None:
-    """'premium' | 'intermediario' | None. Marca premium promove o modelo."""
+    """'premium' | 'intermediario' | 'compacto' | None.
+
+    'compacto' e a classe crossover (hatch levantado). Marca premium promove
+    o modelo dentro da classe SUV.
+    """
     t = limpar_titulo(title)
-    if classify_body(title) != "suv":
+    carroceria = classify_body(title)
+    if carroceria == "crossover":
+        return "compacto"
+    if carroceria != "suv":
         return None
     for model in DOWNGRADE_PARA_INTERMEDIARIO:
         if _matches_model(t, model):

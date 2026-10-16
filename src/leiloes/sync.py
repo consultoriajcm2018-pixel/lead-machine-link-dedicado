@@ -20,7 +20,7 @@ def coletar(max_pages: int = 6) -> list[Lote]:
 
 def detalhar(lotes: list[Lote], limite: int = 60) -> list[Lote]:
     """Abre a pagina de cada SUV para ler descricao, avaliacao e teto solar."""
-    alvos = [l for l in lotes if l.body == "suv"][:limite]
+    alvos = [l for l in lotes if l.body in ("suv", "crossover")][:limite]
     if not alvos:
         return lotes
     with build_client() as client:
@@ -43,9 +43,11 @@ def sincronizar(
     finally:
         conn.close()
     suvs = [l for l in lotes if l.body == "suv"]
+    crossovers = [l for l in lotes if l.body == "crossover"]
     return {
         "lotes_coletados": gravados,
         "suvs": len(suvs),
+        "crossovers": len(crossovers),
         "suvs_premium": sum(1 for l in suvs if l.tier == "premium"),
         "com_teto_solar_declarado": sum(1 for l in suvs if l.sunroof),
         "sincronizado_em": quando,

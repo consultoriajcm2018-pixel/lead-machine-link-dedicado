@@ -6,7 +6,7 @@ import dataclasses
 import datetime as dt
 import os
 import sqlite3
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 from .models import Lote
 
@@ -79,9 +79,10 @@ def stamp_sync(conn: sqlite3.Connection) -> str:
 
 def buscar(
     conn: sqlite3.Connection,
-    body: str | None = "suv",
+    body: str | Sequence[str] | None = "suv",
     tier: str | None = None,
     uf: str | None = None,
+    incluir_sem_uf: bool = False,
     preco_max: float | None = None,
     preco_min: float | None = None,
     desconto_min: int | None = None,
@@ -98,13 +99,18 @@ def buscar(
     where = ["price IS NOT NULL"]
     params: list[Any] = []
     if body:
-        where.append("body = ?")
-        params.append(body)
+        valores = [body] if isinstance(body, str) else list(body)
+        where.append(f"body IN ({', '.join('?' for _ in valores)})")
+        params.extend(valores)
     if tier:
         where.append("tier = ?")
         params.append(tier)
     if uf:
-        where.append("UPPER(uf) = ?")
+        # "SI" e o que a origem publica quando nao declara a praca do lote.
+        if incluir_sem_uf:
+            where.append("(UPPER(uf) = ? OR uf = '' OR UPPER(uf) = 'SI')")
+        else:
+            where.append("UPPER(uf) = ?")
         params.append(uf.upper())
     if preco_max is not None:
         where.append("price <= ?")
