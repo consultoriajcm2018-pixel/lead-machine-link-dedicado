@@ -43,6 +43,26 @@ def test_nao_confunde_ano_cidade_e_versao_com_modelo() -> None:
     assert classify_body("Carro Hyundai Santa Fe 3.5 V6 2013") == "suv"
 
 
+def test_modelos_abreviados_e_familias() -> None:
+    # Abreviacao de leiloeiro: "DEF130D" e o Land Rover Defender 130.
+    assert classify_body("I/LR DEF130D X - 23/23 - São Paulo/SP") == "suv"
+    # Pajero solto, Dakar e GLS sao SUV; nao so o Full e o Sport.
+    for titulo in ("Carro Mitsubishi Pajero Dakar - 2010",
+                   "I/Mitsubishi Pajero GLS - 01/01 - Rio de Janeiro/RJ",
+                   "Mitsubishi/Pajero TR4. 2.0 - 09/10 - Taubaté/SP"):
+        assert classify_body(titulo) == "suv", titulo
+    # O TR4 e compacto: nao herda a faixa premium da familia Pajero.
+    assert suv_tier("Mitsubishi/Pajero TR4. 2.0 - 09/10") == "intermediario"
+    assert suv_tier("Carro Mitsubishi Pajero Sport HPE - 2006") == "premium"
+    # Sedan, hatch e roadster de marca premium continuam fora.
+    for titulo in ("I/VOLVO S60 2.0 T5 R-DES - 14/15",
+                   "AUDI/A3 1.6 - 01/01 - Queiroz/SP",
+                   "Carro BMW 550I NW51 SECURITY - 2008",
+                   "Direitos sobre Carro Mercedes Benz A200 AMG LINE - 2023",
+                   "Direitos sobre Carro Mercedes Benz SLK 200K - 2008"):
+        assert classify_body(titulo) == "outro", titulo
+
+
 def test_faixa_premium() -> None:
     assert suv_tier("I/LR Evoque Prestige 2.2 - 2015/2015") == "premium"
     assert suv_tier("FORD/ECOSPORT XLT1.6FLEX - 08/08") == "intermediario"

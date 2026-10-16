@@ -110,7 +110,12 @@ const brl = v => v == null ? "—" : v.toLocaleString("pt-BR",{style:"currency",
 function tags(l){
   const t = [];
   if (l.tier === "premium") t.push(['ok','premium']);
-  if (l.discount_pct) t.push(['','-'+l.discount_pct+'% ' + (l.discount_label||'')]);
+  if (l.discount_label || l.discount_pct){
+    // Rotulo da origem, literal: "50% abaixo na 2a praca" e condicao futura,
+    // nao desconto ja aplicado no valor exibido.
+    const jaAplicado = l.appraisal && l.price && l.appraisal > l.price * 1.05;
+    t.push([jaAplicado ? 'ok' : '', l.discount_label || ('-' + l.discount_pct + '%')]);
+  }
   t.push([l.sunroof ? 'ok' : '', 'teto solar: ' + l.teto_solar]);
   if (l.so_direitos) t.push(['risco','só os direitos, não o veículo']);
   if (l.sucata) t.push(['risco','anunciado como sucata/incompleto']);

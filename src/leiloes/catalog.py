@@ -26,7 +26,8 @@ SUV_MODELS: dict[str, tuple[str, ...]] = {
         "touareg",
         "land cruiser", "prado", "sw4", "hilux sw4",
         "grand cherokee", "commander", "wrangler",
-        "pajero full", "pajero sport",
+        "pajero", "pajero full", "pajero sport", "pajero dakar",
+        "def90", "def110", "def130", "def130d", "defender 110", "defender 130",
         "murano", "x-trail", "xtrail",
         "santa fe", "santafe", "grand santa fe",
         "sorento", "mohave",
@@ -56,6 +57,8 @@ SUV_MODELS: dict[str, tuple[str, ...]] = {
         "cx-5", "cx5", "cx-3",
         "t60", "t80", "t40", "t50",
         "trailhawk",
+        "pajero tr4", "tr4",
+        "jeep universal", "ford jeep", "willys", "bandeirante", "troller",
     ),
 }
 
@@ -84,6 +87,8 @@ PICKUP_HINTS = (
 # marca correspondente aparece no mesmo titulo.
 BRAND_REQUIRED: dict[str, tuple[str, ...]] = {
     "santa fe": ("hyundai",),
+    "tr4": ("mitsubishi", "pajero"),
+    "willys": ("ford", "willys", "jeep"),
     "2008": ("peugeot",),
     "3008": ("peugeot",),
     "5008": ("peugeot",),
@@ -219,11 +224,19 @@ def classify_body(title: str) -> str:
     return "outro"
 
 
+# Modelos de entrada que nao devem herdar a faixa premium da familia ou da
+# marca (o Pajero TR4 e um compacto, nao o Pajero Full).
+DOWNGRADE_PARA_INTERMEDIARIO = ("tr4", "pajero tr4", "jeep universal", "ford jeep", "willys", "bandeirante")
+
+
 def suv_tier(title: str) -> str | None:
     """'premium' | 'intermediario' | None. Marca premium promove o modelo."""
     t = limpar_titulo(title)
     if classify_body(title) != "suv":
         return None
+    for model in DOWNGRADE_PARA_INTERMEDIARIO:
+        if _matches_model(t, model):
+            return "intermediario"
     for model in SUV_MODELS["premium"]:
         if _matches_model(t, model):
             return "premium"
