@@ -56,9 +56,19 @@ O banco fica em `leiloes.db` (mude com a variável `LEILOES_DB`).
 | Rota | Para quê |
 |---|---|
 | `GET /` | Interface web, feita para tela de celular. |
-| `GET /api/lotes` | Lista filtrada. Filtros: `tier`, `uf`, `preco_max`, `preco_min`, `desconto_min`, `teto_solar`, `so_parcelavel`, `excluir_direitos`, `excluir_sucata`, `termo`, `ordem`, `entrada_pct`, `parcelas`. |
+| `GET /api/lotes` | Lista filtrada. Filtros: `idade_max` (padrão 5), `incluir_sem_ano`, `tier`, `uf`, `preco_max`, `preco_min`, `desconto_min`, `teto_solar`, `so_parcelavel`, `excluir_direitos`, `excluir_sucata`, `termo`, `ordem`, `entrada_pct`, `parcelas`. |
 | `GET /api/simulacao` | Simulação do art. 895 para um valor. Recusa entrada < 25% e mais de 30 parcelas. |
 | `POST /api/sync` | Dispara uma nova coleta. |
+
+## Idade do veículo
+
+O filtro padrão é **no máximo 5 anos de uso**, contados do **ano modelo** que o
+anúncio declara (`idade_max=5`, ou `--idade-max 5` na linha de comando).
+
+O leiloeiro escreve o ano de duas formas — `2019/2020` e `19/20` — e vale
+sempre o segundo número, o ano modelo. Quando o anúncio **não declara ano**, o
+lote fica fora da lista: idade não se deduz por geração do modelo nem por
+aparência. Para ver esses casos à parte, use `incluir_sem_ano=true`.
 
 ## Sinais de alerta que a plataforma marca sozinha
 
@@ -68,6 +78,10 @@ O banco fica em `leiloes.db` (mude com a variável `LEILOES_DB`).
 - **pagamento: somente à vista** — o anúncio nega parcelamento nesse lote.
 - **valor do anúncio é lance corrente** — a listagem mostra R$ 1,00 ou valor
   simbólico; o número que vale está na página do lote.
+- **ano não declarado** — o anúncio não diz ano modelo, então a idade não pôde
+  ser conferida.
+- **o selo de desconto repete o texto da origem** — "50% abaixo na 2ª praça" é
+  condição futura, não abatimento já aplicado no valor exibido.
 
 ## Testes
 

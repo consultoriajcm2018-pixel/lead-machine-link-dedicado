@@ -28,6 +28,7 @@ class Lote:
     second_date: str = ""
     image_url: str = ""
     year_label: str = ""
+    model_year: int | None = None   # ano modelo declarado; None = nao declarado
 
     body: str = ""              # suv | picape | outro | nao_carro
     tier: str | None = None     # premium | intermediario

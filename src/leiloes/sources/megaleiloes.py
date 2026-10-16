@@ -11,6 +11,7 @@ import re
 import httpx
 from bs4 import BeautifulSoup
 
+from ..anos import parse_model_year
 from ..catalog import classify_body, has_sunroof, suv_tier
 from ..extract import forma_pagamento, is_sucata, so_direitos
 from ..http import get_text
@@ -84,6 +85,7 @@ def parse_card(card) -> Lote | None:
     lote.body = classify_body(title)
     lote.tier = suv_tier(title)
     lote.sunroof = True if has_sunroof(title) else None
+    lote.model_year = parse_model_year(title)
     lote.scrap = is_sucata(title)
     lote.rights_only = so_direitos(title)
     return lote
@@ -136,6 +138,8 @@ def enrich(client: httpx.Client, lote: Lote) -> Lote:
     lote.description = text[:4000]
     if has_sunroof(text):
         lote.sunroof = True
+    if lote.model_year is None:
+        lote.model_year = parse_model_year(text, somente_rotulado=True)
     lote.payment_terms = forma_pagamento(text)
     lote.scrap = lote.scrap or is_sucata(text)
     lote.rights_only = lote.rights_only or so_direitos(text)

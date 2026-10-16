@@ -7,7 +7,10 @@ import pathlib
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 
+import datetime as dt
+
 from . import store
+from .anos import idade
 from .finance import MAX_PARCELAS, MIN_ENTRADA_PCT, RegraLegalError, simular
 from .sync import sincronizar
 
@@ -42,6 +45,8 @@ def listar_lotes(
     preco_max: float | None = None,
     desconto_min: int | None = None,
     teto_solar: bool = False,
+    idade_max: int | None = Query(5, ge=0, le=60, description="anos de uso maximos; o padrao e 5"),
+    incluir_sem_ano: bool = False,
     excluir_sucata: bool = True,
     excluir_direitos: bool = False,
     so_parcelavel: bool = False,
@@ -51,6 +56,8 @@ def listar_lotes(
     entrada_pct: float = MIN_ENTRADA_PCT,
     parcelas: int = MAX_PARCELAS,
 ) -> JSONResponse:
+    ano_min = dt.date.today().year - idade_max if idade_max is not None else None
+
     conn = store.connect()
     try:
         linhas = store.buscar(
@@ -62,6 +69,8 @@ def listar_lotes(
             preco_max=preco_max,
             desconto_min=desconto_min,
             teto_solar=teto_solar,
+            ano_min=ano_min,
+            incluir_sem_ano=incluir_sem_ano,
             excluir_sucata=excluir_sucata,
             excluir_direitos=excluir_direitos,
             so_parcelavel=so_parcelavel,
@@ -78,6 +87,9 @@ def listar_lotes(
         linha["teto_solar"] = "sim" if linha.get("sunroof") else "nao informado"
         linha["parcelamento"] = linha.get("payment_terms") or "nao declarado no anuncio"
         linha["sucata"] = bool(linha.get("scrap"))
+        anos = idade(linha.get("model_year"))
+        linha["idade"] = anos
+        linha["ano_modelo"] = linha.get("model_year") or "nao declarado"
         linha["so_direitos"] = bool(linha.get("rights_only"))
         linha.pop("description", None)
         if linha["preco_confiavel"]:
@@ -95,6 +107,11 @@ def listar_lotes(
         {
             "atualizado_em": atualizado,
             "total": len(linhas),
+            "regra_de_idade": {
+                "idade_maxima": idade_max,
+                "ano_modelo_minimo": ano_min,
+                "sem_ano_declarado_incluidos": incluir_sem_ano,
+            },
             "regra_de_parcelamento": {
                 "base_legal": "CPC (Lei 13.105/2015), art. 895",
                 "entrada_minima": MIN_ENTRADA_PCT,

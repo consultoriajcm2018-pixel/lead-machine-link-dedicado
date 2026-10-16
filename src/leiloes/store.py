@@ -13,7 +13,7 @@ from .models import Lote
 DB_PATH = os.environ.get("LEILOES_DB", "leiloes.db")
 
 FIELDS = [f.name for f in dataclasses.fields(Lote)]
-NUMERICOS = ("price", "appraisal", "discount_pct", "sunroof", "scrap", "rights_only")
+NUMERICOS = ("price", "appraisal", "discount_pct", "sunroof", "scrap", "rights_only", "model_year")
 
 SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS lotes (
@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS lotes (
     discount_pct INTEGER,
     sunroof INTEGER,
     scrap INTEGER,
-    rights_only INTEGER
+    rights_only INTEGER,
+    model_year INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_lotes_body ON lotes(body);
 CREATE INDEX IF NOT EXISTS idx_lotes_price ON lotes(price);
@@ -85,6 +86,8 @@ def buscar(
     preco_min: float | None = None,
     desconto_min: int | None = None,
     teto_solar: bool = False,
+    ano_min: int | None = None,
+    incluir_sem_ano: bool = False,
     excluir_sucata: bool = True,
     excluir_direitos: bool = False,
     so_parcelavel: bool = False,
@@ -114,6 +117,12 @@ def buscar(
         params.append(desconto_min)
     if teto_solar:
         where.append("sunroof = 1")
+    if ano_min is not None:
+        if incluir_sem_ano:
+            where.append("(model_year >= ? OR model_year IS NULL)")
+        else:
+            where.append("model_year >= ?")
+        params.append(ano_min)
     if excluir_sucata:
         where.append("COALESCE(scrap, 0) = 0")
     if excluir_direitos:

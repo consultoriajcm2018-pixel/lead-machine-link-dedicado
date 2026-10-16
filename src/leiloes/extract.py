@@ -35,6 +35,11 @@ _SUCATA = (
     "monobloco",
     "sinistrado",
     "incendiado",
+    "media monta",
+    "grande monta",
+    "recuperado de sinistro",
+    "recuperado de um sinistro",
+    "salvado de sinistro",
 )
 
 

@@ -71,6 +71,9 @@
     <label>Desconto mínimo (%)
       <input type="number" name="desconto_min" placeholder="ex.: 40" inputmode="numeric">
     </label>
+    <label>Idade máxima (anos de uso)
+      <input type="number" name="idade_max" value="5" min="0" max="60" inputmode="numeric">
+    </label>
     <label>Faixa
       <select name="tier">
         <option value="">Todas</option>
@@ -97,6 +100,9 @@
       <label style="flex-direction:row;gap:6px;align-items:center">
         <input type="checkbox" name="excluir_direitos"> esconder "só os direitos"
       </label>
+      <label style="flex-direction:row;gap:6px;align-items:center">
+        <input type="checkbox" name="incluir_sem_ano"> incluir lotes sem ano declarado
+      </label>
     </div>
     <button type="submit">Buscar</button>
   </form>
@@ -116,6 +122,9 @@ function tags(l){
     const jaAplicado = l.appraisal && l.price && l.appraisal > l.price * 1.05;
     t.push([jaAplicado ? 'ok' : '', l.discount_label || ('-' + l.discount_pct + '%')]);
   }
+  t.push([l.idade != null && l.idade <= 5 ? 'ok' : '',
+          l.ano_modelo === 'nao declarado' ? 'ano não declarado'
+          : l.ano_modelo + ' · ' + l.idade + (l.idade === 1 ? ' ano de uso' : ' anos de uso')]);
   t.push([l.sunroof ? 'ok' : '', 'teto solar: ' + l.teto_solar]);
   if (l.so_direitos) t.push(['risco','só os direitos, não o veículo']);
   if (l.sucata) t.push(['risco','anunciado como sucata/incompleto']);

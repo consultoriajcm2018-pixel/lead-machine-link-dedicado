@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 
+import datetime as dt
+
 from . import store
 from .sync import sincronizar
 
@@ -19,6 +21,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--uf", default=None)
     parser.add_argument("--preco-max", type=float, default=None)
     parser.add_argument("--teto-solar", action="store_true")
+    parser.add_argument("--idade-max", type=int, default=5,
+                        help="anos de uso maximos do veiculo (padrao 5)")
+    parser.add_argument("--incluir-sem-ano", action="store_true",
+                        help="tambem lista lotes sem ano modelo declarado")
     parser.add_argument("--limite", type=int, default=50)
     args = parser.parse_args(argv)
 
@@ -34,6 +40,8 @@ def main(argv: list[str] | None = None) -> int:
             uf=args.uf,
             preco_max=args.preco_max,
             teto_solar=args.teto_solar,
+            ano_min=dt.date.today().year - args.idade_max if args.idade_max is not None else None,
+            incluir_sem_ano=args.incluir_sem_ano,
             limite=args.limite,
         )
     finally:

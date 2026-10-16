@@ -8,6 +8,8 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
+from leiloes.anos import idade, parse_model_year  # noqa: E402
+from leiloes.extract import is_sucata  # noqa: E402
 from leiloes.catalog import classify_body, has_sunroof, suv_tier  # noqa: E402
 from leiloes.finance import MIN_ENTRADA_PCT, RegraLegalError, simular  # noqa: E402
 from leiloes.sources import leiloesjudiciais, megaleiloes  # noqa: E402
@@ -72,6 +74,63 @@ def test_faixa_premium() -> None:
 def test_teto_solar_so_quando_declarado() -> None:
     assert has_sunroof("Jeep Compass Limited com teto solar") is True
     assert has_sunroof("Jeep Compass Limited") is False
+
+
+def test_ano_modelo_declarado() -> None:
+    # Quatro digitos: vale o ano modelo, o segundo.
+    assert parse_model_year("Carro Hyundai Creta Limited - 2023/2024") == 2024
+    assert parse_model_year("Carro Mitsubishi, Pajero Sport HPE - 2019/2020") == 2020
+    assert parse_model_year("Carro Chevrolet D20 Custom - 1985") == 1985
+    # Dois digitos, como o leiloeiro costuma escrever.
+    assert parse_model_year("I/LR DEF130D X - 23/23 - São Paulo/SP") == 2023
+    assert parse_model_year("VW/T-Cross TSI MD - 19/20 - São José do Rio Preto/SP") == 2020
+    assert parse_model_year("FORD/ECOSPORT XLT1.6FLEX – 08/09 – Itaquaquecetuba/SP") == 2009
+    # Dois digitos antigos nao viram ano futuro.
+    assert parse_model_year("Veículo Ford Jeep Universal 60/60 - Piquerobi/SP") == 1960
+    # Rotulo na descricao do lote serve de reserva.
+    assert parse_model_year("AUTOMÓVEL FORD/ECOSPORT, Ano/Modelo 2008/2009, Cor PRATA") == 2009
+    # Anuncio sem ano nao vira palpite.
+    assert parse_model_year("Ford/Ecosport XLS 1.6 Flex - Fortaleza/CE") is None
+    assert idade(None) is None
+    assert idade(2021, referencia=2026) == 5
+
+
+def test_descricao_so_aceita_ano_rotulado() -> None:
+    # Numero de processo tem ano dentro e ja foi lido como ano do carro.
+    processo = ("AUTOMÓVEL FORD/ECOSPORT XLS 1.6 FLEX, placa HYN-6234. "
+                "(Proc. 0001046-71.2023.5.07.0010) LOCALIZAÇÃO DO BEM: AV. CARAPINIMA")
+    assert parse_model_year(processo, somente_rotulado=True) is None
+    assert parse_model_year("no ano de 2023 o juízo determinou", somente_rotulado=True) is None
+    # Rotulado, aceita.
+    assert parse_model_year("Ano/Modelo 2008/2009, Cor PRATA", somente_rotulado=True) == 2009
+    assert parse_model_year("ANO FAB/MOD: 2019/2020", somente_rotulado=True) == 2020
+
+
+def test_sinistro_recuperado_conta_como_alerta() -> None:
+    assert is_sucata("recuperado de um sinistro de média monta") is True
+    assert is_sucata("veículo de grande monta") is True
+    assert is_sucata("veículo em bom estado de conservação") is False
+
+
+def test_filtro_de_idade_nao_inventa_ano(tmp_path: pathlib.Path | None = None) -> None:
+    import tempfile
+
+    from leiloes.models import Lote
+
+    lotes = [
+        Lote(source="t", source_id="novo", url="u1", title="Jeep Compass - 22/23", body="suv", price=90000.0, model_year=2023),
+        Lote(source="t", source_id="velho", url="u2", title="Jeep Compass - 12/13", body="suv", price=40000.0, model_year=2013),
+        Lote(source="t", source_id="semano", url="u3", title="Jeep Compass", body="suv", price=50000.0, model_year=None),
+    ]
+    with tempfile.TemporaryDirectory() as tmp:
+        conn = connect(str(pathlib.Path(tmp) / "t.db"))
+        upsert_many(conn, lotes)
+        recentes = {l["source_id"] for l in buscar(conn, body="suv", ano_min=2021)}
+        assert recentes == {"novo"}, recentes
+        # Sem ano declarado so entra quando pedido de forma explicita.
+        com_desconhecidos = {l["source_id"] for l in buscar(conn, body="suv", ano_min=2021, incluir_sem_ano=True)}
+        assert com_desconhecidos == {"novo", "semano"}, com_desconhecidos
+        conn.close()
 
 
 def test_regras_do_artigo_895() -> None:
